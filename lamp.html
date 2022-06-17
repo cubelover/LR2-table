@@ -1,0 +1,178 @@
+<html>
+<head>
+<title>Lamp</title>
+<style>
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+td, th {
+  z-index: -2;
+  text-align: center;
+  border: 1px solid;
+  position: relative;
+}
+span {
+  z-index: -1;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  position: absolute;
+}
+</style>
+</head>
+<body>
+<p><input type="radio" id="isDB" name="method" checked><label for="isDB">DB</label> <input type="radio" id="isXML" name="method"><label for="isXML">XML</label></p>
+<div id="methodDB"><input id="dbFile" type="file"></div>
+<div id="methodXML">
+<p>LR2ID <input id="lr2id" type="text"> <button id="getplayerxml">Open</button></p>
+<p>XML <input id="txt"></input> <button id="lamp">Lamp</button></p>
+</div>
+<p id="level"></p>
+<p><input id="noplay" type="checkbox"> Include NOPLAY</p>
+<table>
+<thead>
+<tr>
+<td width="12%">#</td>
+<td width="22%">yE</td>
+<td width="22%">yN</td>
+<td width="22%">yH</td>
+<td width="22%">yF</td>
+</tr>
+</thead>
+<tbody id="table"></tbody>
+</table>
+<script src="sql.js"></script>
+<script>
+'use strict';
+methodXML.style.display = 'none';
+isDB.onchange = isXML.onchange = () => {
+  methodDB.style.display = isDB.checked ? '' : 'none';
+  methodXML.style.display = isXML.checked ? '' : 'none';
+};
+getplayerxml.onclick = () => open(`http://www.dream-pro.info/~lavalse/LR2IR/2/getplayerxml.cgi?id=${lr2id.value}`);
+const $ = document;
+const color = ['#afa', '#ff5', '#faa', '#5ff'];
+const elem = [];
+for (let i = 0; i <= 65; i++) {
+  const tr = $.createElement('tr');
+  const td = $.createElement('td');
+  td.textContent = i;
+  tr.appendChild(td);
+  table.appendChild(tr);
+  const arr = [];
+  for (let j = 0; j < 4; j++) {
+    const td = $.createElement('td');
+    const text = $.createTextNode('');
+    const sp1 = $.createElement('span');
+    const sp2 = $.createElement('span');
+    sp1.style.backgroundColor = color[j];
+    sp2.style.backgroundColor = '#ccc';
+    td.appendChild(text);
+    td.appendChild(sp2);
+    td.appendChild(sp1);
+    tr.appendChild(td);
+    arr.push([text, sp1, sp2]);
+  }
+  elem[i] = arr;
+}
+const data = {};
+const draw = () => {
+  for (let i = 0; i <= 65; i++) for (let j = 0; j < 4; j++) if ([i, j] in data) {
+    const [x, y, z] = data[[i, j]];
+    let tx, ty;
+    if (noplay.checked) {
+      if (z) {
+        tx = x / z;
+        ty = y / z;
+      }
+      else tx = ty = 0;
+    }
+    else {
+      if (y) {
+        tx = x / y;
+        ty = 1;
+      }
+      else tx = ty = 0;
+    }
+    elem[i][j][0].textContent = `${x} / ${y - x} / ${z - y}`;
+    elem[i][j][1].style.width = `${100 * tx}%`;
+    elem[i][j][2].style.width = `${100 * ty}%`;
+  }
+};
+const plays = [];
+const clears = [];
+const grad = (x, y) => {
+  let r = (x - 5) / 75;
+  for (const t of plays[y]) r += 1 / (1 + Math.exp((t - x) / 3));
+  return r - clears[y];
+};
+const calc = (y) => {
+  let L = 0, R = 9999;
+  while (L < R) {
+    const M = L + R >> 1;
+    if (grad((M + M + 1) / 200, y) < 0) L = M + 1;
+    else R = M;
+  }
+  return (L / 100).toFixed(2);
+}
+const agg = async (cd) => {
+  for (const e in data) data[e] = [0, 0, 0];
+  plays[0] = []; plays[1] = []; plays[2] = []; plays[3] = []; plays[4] = [];
+  clears[0] = clears[1] = clears[2] = clears[3] = clears[4] = 0;
+  const score = await fetch('data.json').then(r => r.json());
+  for (const e of score) {
+    const md5 = e[0];
+    for (let i = 1; i <= 4; i++) {
+      const level = e[i];
+      const key = [Math.max(0, Math.min(65, Math.round(level))), i - 1];
+      if (!(key in data)) data[key] = [0, 0, 0];
+      data[key][2]++;
+      if (!(md5 in cd)) continue;
+      plays[0].push(level);
+      plays[i].push(level);
+      data[key][1]++;
+      if (cd[md5] > i) {
+        clears[0]++;
+        clears[i]++;
+        data[key][0]++;
+      }
+    }
+  }
+  draw();
+  level.textContent = `y${calc(0)} / yE${calc(1)} / yN${calc(2)} / yH${calc(3)} / yF${calc(4)}`;
+};
+noplay.onchange = draw;
+dbFile.onchange = () => {
+  dbFile.disabled = true;
+  const f = dbFile.files[0];
+  const r = new FileReader();
+  r.onload = async () => {
+    const SQL = await initSqlJs();
+    const db = new SQL.Database(new Uint8Array(r.result));
+    await agg(Object.fromEntries(db.exec(`SELECT hash, clear FROM score`)[0].values));
+    dbFile.disabled = false;
+  };
+  r.readAsArrayBuffer(f);
+};
+lamp.onclick = async () => {
+  lamp.disabled = true;
+  let t = txt.value;
+  t = t.substring(t.indexOf('<scorelist>'), t.indexOf('</scorelist>') + 12);
+  try {
+    const cd = {};
+    for (const score of new DOMParser().parseFromString(t, 'text/xml').children[0].children) {
+      const hash = score.querySelector('hash').textContent;
+      const clear = +score.querySelector('clear').textContent;
+      cd[hash] = clear;
+    }
+    await agg(cd);
+  } catch(err) {
+    alert('Error');
+    console.log(err);
+  }
+  lamp.disabled = false;
+};
+</script>
+</body>
+</html>
