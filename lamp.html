@@ -103,7 +103,7 @@ const draw = () => {
 const plays = [];
 const clears = [];
 const grad = (x, y) => {
-  let r = (x - 5) / 75;
+  let r = x / 30;
   for (const t of plays[y]) r += 1 / (1 + Math.exp((t - x) / 3));
   return r - clears[y];
 };
