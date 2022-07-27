@@ -25,8 +25,8 @@ span {
 <p><input type="radio" id="isDB" name="method" checked><label for="isDB">DB</label> <input type="radio" id="isXML" name="method"><label for="isXML">XML</label></p>
 <div id="methodDB"><input id="dbFile" type="file"></div>
 <div id="methodXML">
-<p>LR2ID <input id="lr2id" type="text"> <button id="getplayerxml">Open</button></p>
-<p>XML <input id="txt"></input> <button id="lamp">Lamp</button></p>
+<p>LR2ID <input id="lr2id" type="text"> <button id="copy">Copy</button></p>
+<p><input id="XMLFile" type="file"></p>
 </div>
 <p id="level"></p>
 <p><input id="noplay" type="checkbox"> Include NOPLAY</p>
@@ -50,7 +50,7 @@ isDB.onchange = isXML.onchange = () => {
   methodDB.style.display = isDB.checked ? '' : 'none';
   methodXML.style.display = isXML.checked ? '' : 'none';
 };
-getplayerxml.onclick = () => open(`http://www.dream-pro.info/~lavalse/LR2IR/2/getplayerxml.cgi?id=${lr2id.value}`);
+copy.onclick = () => navigator.clipboard.writeText(`http://www.dream-pro.info/~lavalse/LR2IR/2/getplayerxml.cgi?id=${lr2id.value}`);
 const $ = document;
 const color = ['#afa', '#ff5', '#faa', '#5ff'];
 const elem = [];
@@ -155,23 +155,28 @@ dbFile.onchange = () => {
   };
   r.readAsArrayBuffer(f);
 };
-lamp.onclick = async () => {
-  lamp.disabled = true;
-  let t = txt.value;
-  t = t.substring(t.indexOf('<scorelist>'), t.indexOf('</scorelist>') + 12);
-  try {
-    const cd = {};
-    for (const score of new DOMParser().parseFromString(t, 'text/xml').children[0].children) {
-      const hash = score.querySelector('hash').textContent;
-      const clear = +score.querySelector('clear').textContent;
-      cd[hash] = clear;
+XMLFile.onchange = () => {
+  XMLFile.disabled = true;
+  const f = XMLFile.files[0];
+  const r = new FileReader();
+  r.onload = async () => {
+    let t = r.result;
+    t = t.substring(t.indexOf('<scorelist>'), t.indexOf('</scorelist>') + 12);
+    try {
+      const cd = {};
+      for (const score of new DOMParser().parseFromString(t, 'text/xml').children[0].children) {
+        const hash = score.querySelector('hash').textContent;
+        const clear = +score.querySelector('clear').textContent;
+        cd[hash] = clear;
+      }
+      await agg(cd);
+    } catch(err) {
+      alert('Error');
+      console.log(err);
     }
-    await agg(cd);
-  } catch(err) {
-    alert('Error');
-    console.log(err);
-  }
-  lamp.disabled = false;
+    XMLFile.disabled = false;
+  };
+  r.readAsText(f);
 };
 </script>
 </body>
