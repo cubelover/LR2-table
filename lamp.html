@@ -1,4 +1,4 @@
-<html>
+<html lang="en">
 <head>
 <title>Lamp</title>
 <style>
@@ -7,10 +7,12 @@ table {
   border-collapse: collapse;
 }
 td, th {
-  z-index: -2;
   text-align: center;
   border: 1px solid;
   position: relative;
+}
+.graph td {
+  z-index: -2;
 }
 span {
   z-index: -1;
@@ -30,7 +32,7 @@ span {
 </div>
 <p id="level"></p>
 <p><input id="noplay" type="checkbox"> Include NOPLAY</p>
-<table>
+<table class="graph">
 <thead>
 <tr>
 <td width="12%">#</td>
@@ -42,7 +44,7 @@ span {
 </thead>
 <tbody id="table"></tbody>
 </table>
-<p id="recommend"></p>
+<table id="recommend"></table>
 <script src="sql.js"></script>
 <script>
 'use strict';
@@ -54,6 +56,7 @@ isDB.onchange = isXML.onchange = () => {
 copy.onclick = () => navigator.clipboard.writeText(`http://www.dream-pro.info/~lavalse/LR2IR/2/getplayerxml.cgi?id=${lr2id.value}`);
 const $ = document;
 const color = ['#afa', '#ff5', '#faa', '#5ff'];
+const LAMP = ['', 'EASY', 'NORMAL', 'HARD', 'FULLCOMBO'];
 const elem = [];
 for (let i = 0; i <= 65; i++) {
   const tr = $.createElement('tr');
@@ -76,6 +79,23 @@ for (let i = 0; i <= 65; i++) {
     arr.push([text, sp1, sp2]);
   }
   elem[i] = arr;
+}
+for (let i = 0; i < 4; i++) {
+  const tr = $.createElement('tr');
+  recommend.appendChild(tr);
+  for (let j = 1; j <= 4; j++) {
+    const td = $.createElement('td');
+    td.textContent = `${i === 0 ? `NO ${LAMP[j]}` : i === 1 ? 'NOPLAY' : i === 2 ? 'FAILED' : LAMP[j]} → ${LAMP[j]}`;
+    td.style.width = '25%';
+    td.onclick = () => {
+      const rec = recs[[i, j]];
+      if (rec?.length) {
+        const md5 = rec.shift();
+        window.open(`http://www.dream-pro.info/~lavalse/LR2IR/search.cgi?bmsmd5=${md5}`, '_blank');
+      }
+    };
+    tr.appendChild(td);
+  }
 }
 const data = {};
 const draw = () => {
@@ -103,6 +123,7 @@ const draw = () => {
 };
 const plays = [];
 const clears = [];
+const recs = [];
 const grad = (x, y) => {
   let r = x / 30;
   for (const t of plays[y]) r += 1 / (1 + Math.exp((t - x) / 3));
@@ -134,33 +155,31 @@ const agg = async (cd) => {
         plays[0].push(level);
         plays[i].push(level);
         data[key][1]++;
+        if (cd[md5] > i) {
+          clears[0]++;
+          clears[i]++;
+          data[key][0]++;
+        }
       }
-      if (cd[md5] > i) {
-        clears[0]++;
-        clears[i]++;
-        data[key][0]++;
-      }
-      else if (i == 4) {
-        rec.push([md5, i, level]);
-      }
+      rec.push([md5, i, level, cd[md5] || 0]);
     }
   }
   draw();
   const skill = [calc(0), calc(1), calc(2), calc(3), calc(4)];
   level.textContent = `y${skill[0]} / yE${skill[1]} / yN${skill[2]} / yH${skill[3]} / yF${skill[4]}`;
+  for (let i = 0; i < 4; i++) for (let j = 1; j <= 4; j++) recs[[i, j]] = [];
   for (const e of rec) {
-    e.push(Math.log(1 - Math.random()) / (1 + Math.exp((e[2] - skill[e[1]]) / 3)));
+    const t = e[1] < e[3] ? skill[e[1]] - e[2] : e[2] - skill[e[1]];
+    e.push(Math.log(1 - Math.random()) / (1 + Math.exp(t / 3)));
   }
-  rec.sort((u, v) => u[3] - v[3]);
-  recommend.innerHTML = '';
-  for (let i = 0; i < 100 && i < rec.length; i++) {
-    if (i) recommend.appendChild($.createElement('br'));
-    const a = $.createElement('a');
-    a.href = `http://www.dream-pro.info/~lavalse/LR2IR/search.cgi?mode=ranking&bmsmd5=${rec[i][0]}`;
-    a.textContent = `(${(-rec[i][3]).toFixed(4)}) yF${rec[i][2]} ${rec[i][0]}`;
-    recommend.appendChild(a);
+  rec.sort((u, v) => u[4] - v[4]);
+  for (const [x, y, _, z] of rec) {
+    if (y < z) recs[[3, y]].push(x);
+    else {
+      recs[[0, y]].push(x);
+      recs[[z ? 2 : 1, y]].push(x);
+    }
   }
-  console.log(rec);
 };
 noplay.onchange = draw;
 dbFile.onchange = () => {
