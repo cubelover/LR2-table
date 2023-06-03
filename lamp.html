@@ -125,8 +125,8 @@ const plays = [];
 const clears = [];
 const recs = [];
 const grad = (x, y) => {
-  let r = x / 30;
-  for (const t of plays[y]) r += 1 / (1 + Math.exp((t - x) / 3));
+  let r = x / 4;
+  for (const t of plays[y]) r += 1 / (1 + Math.exp((t - x) / 3.25));
   return r - clears[y];
 };
 const calc = (y) => {
@@ -152,11 +152,16 @@ const agg = async (cd) => {
       if (!(key in data)) data[key] = [0, 0, 0];
       data[key][2]++;
       if (md5 in cd) {
-        plays[0].push(level);
+        if (cd[md5] === i) {
+          plays[0].push(level);
+        }
+        if (cd[md5] === i + 1) {
+          plays[0].push(level);
+          clears[0]++;
+        }
         plays[i].push(level);
         data[key][1]++;
         if (cd[md5] > i) {
-          clears[0]++;
           clears[i]++;
           data[key][0]++;
         }
