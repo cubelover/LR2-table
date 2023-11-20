@@ -1,0 +1,113 @@
+<html lang="en">
+<head>
+<title>Yune</title>
+<style>
+label {
+  display: inline-block;
+  padding: 4px;
+  width: 72px;
+}
+table {
+  width: 900px;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+tr {
+  border-bottom: 1px solid black;
+}
+th, td {
+  padding: 4px;
+}
+td:first-child {
+  overflow: hidden;
+  text-wrap: nowrap;
+  text-overflow: ellipsis;
+}
+a {
+  color: gray;
+}
+</style>
+</head>
+<body>
+<div id="filter"></div>
+<table>
+<thead>
+<tr id="thead">
+<th>Title ▲</th>
+<th width="6%">yE</th>
+<th width="6%">yN</th>
+<th width="6%">yH</th>
+<th width="6%">yF</th>
+<th width="16%">Level</th>
+</tr>
+</thead>
+<tbody id="table"></tbody>
+</table>
+<script src="yune.js"></script>
+<script>
+'use strict';
+const COLUMN = ['Title', 'yE', 'yN', 'yH', 'yF'];
+const $ = document;
+const option = {};
+const elem = [];
+const sortkey = [0, 1];
+const draw = () => {
+  table.replaceChildren();
+  const [x, y] = sortkey;
+  elem.sort((u, v) => u[x] < v[x] ? -y : y);
+  for (const e of elem) {
+    for (const lv of e[5]) if (option[lv].checked) {
+      table.appendChild(e[6]);
+      break;
+    }
+  }
+};
+const sortby = (i) => {
+  const [x, y] = sortkey;
+  if (x == i) {
+    sortkey[1] = -y;
+    thead.children[i].textContent = `${COLUMN[i]} ${y < 0 ? '▲' : '▼'}`;
+  }
+  else {
+    sortkey[0] = i;
+    sortkey[1] = 1;
+    thead.children[x].textContent = COLUMN[x];
+    thead.children[i].textContent = `${COLUMN[i]} ▲`;
+  }
+  draw();
+};
+for (let i = 0; i < 5; i++) thead.children[i].addEventListener('click', () => sortby(i));
+for (const ls of level) {
+  const div = $.createElement('div');
+  for (const lv of ls) {
+    const checkbox = $.createElement('input');
+    checkbox.setAttribute('type', 'checkbox');
+    checkbox.setAttribute('id', `filter-${lv}`);
+    checkbox.addEventListener('change', draw);
+    const label = $.createElement('label');
+    label.setAttribute('for', `filter-${lv}`);
+    label.appendChild(checkbox);
+    label.appendChild($.createTextNode(lv));
+    div.appendChild(label);
+    option[lv] = checkbox;
+  }
+  filter.appendChild(div);
+}
+for (const [md5, title, yE, yN, yH, yF, levels] of yune) {
+  const tr = $.createElement('tr');
+  let td = $.createElement('td');
+  const a = $.createElement('a');
+  a.href = `http://www.dream-pro.info/~lavalse/LR2IR/search.cgi?mode=ranking&bmsmd5=${md5}`;
+  a.textContent = title;
+  td.appendChild(a);
+  tr.appendChild(td);
+  td = $.createElement('td'); td.textContent = yE.toFixed(2); tr.appendChild(td);
+  td = $.createElement('td'); td.textContent = yN.toFixed(2); tr.appendChild(td);
+  td = $.createElement('td'); td.textContent = yH.toFixed(2); tr.appendChild(td);
+  td = $.createElement('td'); td.textContent = yF.toFixed(2); tr.appendChild(td);
+  td = $.createElement('td'); td.textContent = levels.join(' '); tr.appendChild(td);
+  elem.push([title, yE, yN, yH, yF, levels, tr]);
+}
+</script>
+</body>
+</html>
